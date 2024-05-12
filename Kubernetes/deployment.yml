@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: netflix-app
-        image: pramod858/netflix:v14
+        image: pramod858/netflix:v1
         ports:
         - containerPort: 80
