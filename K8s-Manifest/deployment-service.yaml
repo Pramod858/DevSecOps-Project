@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: netflix
-        image: pramod858/netflix:v2
+        image: pramod858/netflix:v3
         imagePullPolicy: Always
         ports:
         - containerPort: 80
