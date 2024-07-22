@@ -11,14 +11,84 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
-      - run: npm install
+      - name: Install Dependencies
+        run: |
+          npm install
       - run: npm ci
       - run: npm test
+
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'
+          output: 'trivy-fs-results.html'
+          severity: 'CRITICAL'
+
+      - name: Upload Trivy Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: Trivy-fs-results
+          path: trivy-fs-results.html
+          overwrite: true
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+     # Check the Quality Gate status.
+      - name: SonarQube Quality Gate check
+        id: sonarqube-quality-gate-check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        # Force to fail step after specific time.
+        timeout-minutes: 5
+        env:
+         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }} #OPTIONAL
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build the Docker image
+        run: |
+          docker build . \
+            --build-arg TMDB_V3_API_KEY=${{ secrets.TMDB_V3_API_KEY }} \
+            --file Dockerfile \
+            --tag ${{ secrets.DOCKERHUB_USERNAME }}/git-action-netflix:latest
+
+      - name: Trivy Docker Image Scan
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/git-action-netflix:latest
+          ignore-unfixed: true
+          format: 'table'
+          output: 'trivy-image-results.html'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: Trivy-image-results
+          path: trivy-image-results.html
+          overwrite: true
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/git-action-netflix:latest
    
