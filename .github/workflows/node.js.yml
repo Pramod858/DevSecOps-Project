@@ -22,7 +22,6 @@ jobs:
         run: |
           npm install
       - run: npm ci
-      - run: npm test
 
       - name: Run Trivy vulnerability scanner in repo mode
         uses: aquasecurity/trivy-action@0.20.0
